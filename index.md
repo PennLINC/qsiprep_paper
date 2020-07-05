@@ -6,7 +6,7 @@ It contains notes on how and where each data was processed.
 
 
 
-# QC data
+# QC data sourcing and processing
 
 ## ABCD data
 
@@ -39,4 +39,99 @@ with `qc_scripts/abcd_run.py` and the qc values were downloaded using
 `qc_scripts/dl_abcd_qc.py`.
 
 The processed data was downloaded from FlyWheel using
-`qc_scripts/download_preprocd_abcd.py`.
+`qc_scripts/download_preprocd_abcd.py`. The completeness of
+the data set was checked with `qc_scripts/abcd_info.py`.
+
+## HCP (HCP-Lifespan) data
+
+This data was collected by Dr. Geoff Aguirre at UPenn. His group uploaded
+it to FlyWheel and ran the HCP Diffusion pipeline v0.15 on it.
+
+### HCP Diffusion pipeline data and qc
+
+The HCP-preprocessed data was downloaded to `dopamine` using the
+`qc_scripts/download_preprocd_hcp.py` and
+`qc_scripts/download_preprocd_hcp_grads.py` scripts. The gradients
+were later needed to extract b=0 volumes for estimating FWHM.
+
+The qc scores for the HCP-diffusion pipeline data were calculated
+using the `qc_scripts/calc_hcp_qc.sh` script.
+
+### Processing HCP data with QSIPrep
+
+#### BIDS curation and download from FlyWheel
+
+This project needed to be BIDS curated before running QSIPrep. This was
+done using `fwheudiconv` initially with the heuristic file
+`qc_scripts/tome_heuristic.py` and later
+`qc_scripts/tome_ses1_heuristic_nonunique.py` to deal with cancelled scans.
+The gear was launched using `qc_scripts/tome_fwheudiconv_run.py`.
+
+Once curated, the BIDS data was downloaded to `dopamine` using the FlyWheel
+CLI tool with `fw export BIDS`. It was downloaded to
+`/storage/mcieslak/multishell_qc/tome`.
+
+#### Patching QSIPrep to match the HCP Diffusion pipeline outputs
+
+The HCP acquisitions acquire the entire 199-direction sampling scheme
+twice: once in each phase encoding direction. The HCP pipelines run
+`eddy` on the 398 concatenated images and write out the 398
+motion/eddy/distortion-corrected images. These images are ultimately
+separated and images sampling the same coordinate in q-space in the
+original scheme are averaged together.
+
+QSIPrep 0.8.0 does not implement this averaging, so a patch was necessary
+to match the outputs from the HCP diffusion pipeline. Version 0.9.0beta1
+was released with this functionality and the HCP data were run with this
+version. The full patch can be viewed here: https://github.com/PennBBL/qsiprep/commit/997fedb7c8629ff845b65cc0c9dd815b560f8886. The CI didn't pass because of a
+CircleCI-related issue that is fixed in the subsequent commit.
+
+#### Running QSIPrep with Docker
+
+Instead of running on FlyWheel, the HCP data was processed locally on
+`dopamine`. This was done because there is a NVIDIA GPU on `dopamine` that
+sped up the running of `eddy` by more than a factor of 10. Running the CPU
+version on FlyWheel was taking up to 56 hours per subject, which was
+prohibitive. The results are located in
+`/storage/mcieslak/multishell_qc/tome_output`.
+
+## PNC (DTI 64) data
+
+### Roalf/Baum preprocessed data
+
+The other-pipeline preprocessed data was stored a NFS drive on `cfn` accessible as
+`/data/joy/BBL/studies/pnc/processedData/diffusion/pncDTI_2016_04/`. The preprocessed
+data were gathered using `qc_scripts/from_cfn/pnc-link.sh`. QC values were calculated
+using `qc_scripts/from_cfn/pnc_qc.sh`. The images and their gradients were copied to
+`dopamine`, where the FWHMs were calculated.
+
+### QSIPrep processed data
+
+The PNC cohort had already been run through QSIPrep by Dr. Josiane Bourque, but
+she used upsampling, which would interfere with the qc comparison. Therefore,
+a random subset of 125 subjects were selected from Josiane's cohort (which had
+previously passed qc) using numpy's `random.choice` function.
+The QSIPrep gear was run via `qc_scripts/pnc_2mm.py` and the results were
+downloaded via `qc_scripts/dl_pnc_qc.py`.
+
+The preprocessed images and gradients were downloaded to `dopamine` via
+`qc_scripts/download_preprocd_pnc.py` and `qc_scripts/download_preprocd_pnc_grads.py`.
+These were used as inputs for FWHM calculation.
+
+## GRMPY (MultiShell 113) data
+
+### Pines preprocessed data
+
+The other-pipeline data for was also stored on `cfn` and was gathered to one place
+using `qc_scripts/from_cfn/grmpy-link.sh`. These images and gradients were used to calculate
+the qc metric via `qc_scripts/from_cfn/grmpy_qc.sh`. The images and gradients were
+downloaded to `dopamine` where they were used to estimate FWHM. The original images
+were located at `/data/jux/BBL/projects/multishell_diffusion/processedData/multishellPipelineFall2017`.
+
+### QSIPrep processing
+
+The GRMPY data on FlyWheel needed to be re-curated so fieldmaps would be correctly
+represented in BIDS. Once this was done QSIPrep was run on them using
+`qc_scripts/grmpy_run.py`. The qc values were downloaded using `qc_scripts/dl_grmpy_qc.py`,
+the images were downloaded using `qc_scripts/download_preprocd_grmpy.py` and the gradients
+were downloaded using `qc_scripts/download_preprocd_grmpy_grads.py`.
