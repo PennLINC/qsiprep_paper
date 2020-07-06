@@ -7,7 +7,13 @@ It contains notes on how and where each data was processed.
 
 # FWHM estimation
 
-A key
+A key feature of pipelines is that they perform spatial transformations on
+the input data to correct geometric issues like distortion and motion.
+The application of these transformations can add an artificial smoothness
+to the output data. We want to minimize this artifact while still applying
+the corrections for the original artifacts.
+
+We estimate 
 
 
 # QC data sourcing and processing
