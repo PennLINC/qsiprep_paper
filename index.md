@@ -5,6 +5,10 @@ reconstructions and calculate the qc scores for the QSIPrep paper.
 It contains notes on how and where each data was processed.
 
 
+# FWHM estimation
+
+A key
+
 
 # QC data sourcing and processing
 
@@ -176,3 +180,7 @@ so each scan would be processed separately. The
 These were provided by Ariel Rokem as a download from an S3 bucket. These were
 downloaded to `/storage/mcieslak/multishell_qc/hbn_dmriprep` on `dopamine` using
 the command `aws s3 sync --exclude '*' --include '*dwi_eddy*' --acl public-read  s3://legacy-hbn-preprocessing .`.
+
+### QSIPrep processing
+
+Valerie Sydnor ran the QSIPrep processing on the FlyWheel version of these subjects.
