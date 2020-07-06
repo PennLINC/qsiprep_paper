@@ -93,7 +93,10 @@ Instead of running on FlyWheel, the HCP data was processed locally on
 sped up the running of `eddy` by more than a factor of 10. Running the CPU
 version on FlyWheel was taking up to 56 hours per subject, which was
 prohibitive. The results are located in
-`/storage/mcieslak/multishell_qc/tome_output`.
+`/storage/mcieslak/multishell_qc/tome_output`. The qc data were collected
+using `qc_scripts/dl_hcp_qc.py`. The script name is misleading because the
+data was all located on the local machine. All it really does is aggregate
+the qc files.
 
 ## PNC (DTI 64) data
 
@@ -135,3 +138,41 @@ represented in BIDS. Once this was done QSIPrep was run on them using
 `qc_scripts/grmpy_run.py`. The qc values were downloaded using `qc_scripts/dl_grmpy_qc.py`,
 the images were downloaded using `qc_scripts/download_preprocd_grmpy.py` and the gradients
 were downloaded using `qc_scripts/download_preprocd_grmpy_grads.py`.
+
+## Pitt DSI (DSI 113)
+
+### Raw data and QSIPrep
+These images were processed by Laura Cabral and Will Foran at Pitt. The QC files were
+provided by them.
+
+## CRASH DSI Q5 (DSI 258)
+
+### Raw data
+
+BIDS data were copied from the BIC compute cluster at UCSB to the `CUBIC` cluster.
+They exist on `CUBIC` at `/cbica/projects/GURLAB/projects/shoreline/crash_data`.
+
+
+## SuperShell Q7 (DSI 789)
+
+Both the raw and preprocessed data were downloaded from FlyWheel. The QC metrics
+were downloaded using `qc_scripts/dl_q7_qc.py`. The data was processed on
+FlyWheel by Panos Fotiadis.
+
+
+## CS-DSI
+
+The CS-DSI scans were collected as part of a pilot study. There are 20 subjects,
+each of which has 4 separate CS-DSI sequences. The data were BIDS curated on
+FlyWheel and the QSIPrep gear was run using `qc_scripts/csdsi_sep_run.py`.
+This script is named this way because `--combine-all-dwis` was not used
+so each scan would be processed separately. The
+
+
+## HBN data
+
+### Legacy dMRIPrep data
+
+These were provided by Ariel Rokem as a download from an S3 bucket. These were
+downloaded to `/storage/mcieslak/multishell_qc/hbn_dmriprep` on `dopamine` using
+the command `aws s3 sync --exclude '*' --include '*dwi_eddy*' --acl public-read  s3://legacy-hbn-preprocessing .`.
