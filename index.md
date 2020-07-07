@@ -13,7 +13,14 @@ The application of these transformations can add an artificial smoothness
 to the output data. We want to minimize this artifact while still applying
 the corrections for the original artifacts.
 
-We estimate 
+We estimate the FWHM using AFNI's `3dFHWMx`. Although not the original intention
+of this program, `3dFWHMx` estimates spatial smoothness by calculating the
+spatial autocorrelation function (ACF) at each voxel within a brain mask.
+Here we use these ACFs to estimate the FWHM of a 3D Gaussian kernel that
+best fits the data. These were estimated on the outputs from other pipelines
+and from QSIPrep outputs using the script `qc_scripts/multishell_smoothness.sh`.
+
+
 
 
 # QC data sourcing and processing
@@ -185,8 +192,12 @@ so each scan would be processed separately. The
 
 These were provided by Ariel Rokem as a download from an S3 bucket. These were
 downloaded to `/storage/mcieslak/multishell_qc/hbn_dmriprep` on `dopamine` using
-the command `aws s3 sync --exclude '*' --include '*dwi_eddy*' --acl public-read  s3://legacy-hbn-preprocessing .`.
+the command `aws s3 sync --exclude '*' --include '*dwi_eddy*' --acl public-read  s3://legacy-hbn-preprocessing .`. The QC scores were calculated using
+`qc_scripts/calc_hbn_qc.sh`.
+
 
 ### QSIPrep processing
 
-Valerie Sydnor ran the QSIPrep processing on the FlyWheel version of these subjects.
+Valerie Sydnor ran the QSIPrep processing on the FlyWheel version of these subjects. The
+script for downloading the qc scores is `qc_scripts/dl_hbn_qc.py` and the script for
+downloading the preprocssed dwi and gradients is `qc_scripts/download_preprocd_hbn.py`.

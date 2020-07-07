@@ -1,5 +1,42 @@
 #!/bin/bash
 
+###### HBN #########
+SMOOTHCSV=/storage/mcieslak/multishell_qc/hbn_smoothness_vals.csv
+echo "subject,hcp_fwhm,qsiprep_fwhm" > $SMOOTHCSV
+HCPBASE=/storage/mcieslak/multishell_qc/hbn_dmriprep
+BASE=/storage/mcieslak/multishell_qc/hbn_qsiprep_outputs
+smoothd=/storage/mcieslak/multishell_qc/smoothness/hbn
+mkdir -p $smoothd
+
+while read subject
+do
+    # The QSIPrep data
+    nii=${BASE}_*_dwi.nii.gz
+    bval=${BASE}_*_dwi.bval
+    bvec=${BASE}_*_dwi.bvec
+    qb0=${smoothd}/${subject}_desc-qsiprep_b0ref.nii.gz
+    if [ ! -f $qb0 ]; then
+        dwiextract -fslgrad ${bvec} ${bval} ${nii} -bzero - | mrmath - mean $qb0 -axis 3
+    fi
+
+    # The NDAR data
+    hcp_nii=${HCPBASE}/sub-${subject}_ses-1_dwi.nii.gz 
+    hcp_bval=${HCPBASE}/sub-${subject}_ses-1_dwi.bval
+    hcp_bvec=${HCPBASE}/sub-${subject}_ses-1_dwi.bvec
+    hb0=${smoothd}/sub-${subject}_desc-hcp_b0ref.nii.gz
+    if [ ! -f $hb0 ]; then
+        dwiextract -fslgrad ${hcp_bvec} ${hcp_bval} ${hcp_nii} -bzero - | mrmath - mean $hb0 -axis 3
+    fi
+
+    hcp_fwhm=$(3dFWHMx -automask -input ${hb0} | sed 's/  */ /g' )
+    hcp_fwhm1=$(python /storage/mcieslak/multishell_qc/get_fwhm.py ${hcp_fwhm})
+
+    qp_fwhm=$(3dFWHMx -automask -input ${qb0} | sed 's/  */ /g' )
+    qp_fwhm1=$(python /storage/mcieslak/multishell_qc/get_fwhm.py ${qp_fwhm})
+
+    echo ${subject},${hcp_fwhm1},${qp_fwhm1} >> $SMOOTHCSV
+
+done < hbn_subjects.txt
 
 ###### HCP #########
 SMOOTHCSV=/storage/mcieslak/multishell_qc/hcp_smoothness_vals.csv
@@ -167,8 +204,8 @@ do
 	merged_mif=$mifs
     fi
     
-    new_bval=${BASE}/bids/${subject}/ses-baselineYear1Arm1/dwi/${subject}_ses-baselineYear1Arm1_desc-merged_dwi.bval
-    new_bvec=${BASE}/bids/${subject}/ses-baselineYear1Arm1/dwi/${subject}_ses-baselineYear1Arm1_desc_merged_dwi.bvec
+    new_bval=${HCPBASE}/bids/${subject}/ses-baselineYear1Arm1/dwi/${subject}_ses-baselineYear1Arm1_desc-merged_dwi.bval
+    new_bvec=${HCPBASE}/bids/${subject}/ses-baselineYear1Arm1/dwi/${subject}_ses-baselineYear1Arm1_desc_merged_dwi.bvec
     mrinfo -force -export_grad_fsl $new_bvec $new_bval $merged_mif
     mrconvert -force $merged_mif $merged_nii
     hb0=${smoothd}/sub-${subject}_desc-mmps_b0ref.nii.gz
