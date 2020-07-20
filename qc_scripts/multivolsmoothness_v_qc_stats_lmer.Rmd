@@ -1,0 +1,195 @@
+---
+title: "QC and smoothness"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r read_data}
+library(lmerTest)
+library(reshape2)
+library(ggplot2)
+
+qc.fwhm <- read.csv("qc_multivolfwhm_spherical.csv", header=TRUE)
+
+smooth.compare <- dcast(qc.fwhm, scheme + subject ~ pipeline, value.var = "fwhm") 
+smooth.compare$delta.fwhm <- with(smooth.compare, QSIPrep-OtherPipeline)
+#write.csv(smooth.compare, "spherical_meanfwhm_comparisons.csv")
+```
+
+
+```{r plot_deltas}
+ggplot(smooth.compare, aes(x=delta.fwhm, fill=scheme)) + geom_density() + facet_wrap(~scheme) + 
+  theme_linedraw() + geom_vline(xintercept = 0) +
+  scale_fill_brewer(palette="Dark2", limits=levels(qc.fwhm$scheme)) 
+
+```
+
+
+
+```{r plot_smoothness}
+
+ggplot(qc.fwhm, aes(x=scheme, y=fwhm, color=pipeline, fill=scheme)) + geom_boxplot() +
+  theme_linedraw() + ggtitle("Output Smoothness") +
+  ylab("Estimated FWHM (mm)") + xlab("Sampling Scheme") + 
+  scale_fill_brewer(palette="Dark2") + scale_color_grey()
+
+```
+
+
+```{r abcd_compare}
+abcd <- subset(qc.fwhm, scheme=="ABCD")
+abcd$fwhm.cen <- abcd$fwhm - mean(abcd$fwhm)
+abcd.fwhm.model <- lmer(fwhm ~ pipeline + (1 | subject), data=abcd)
+summary(abcd.fwhm.model)
+
+abcd.test <- lmer(qc ~ fwhm.cen + pipeline + (1 | subject), abcd)
+summary(abcd.test)
+
+
+abcd.model <- lm(qc ~ fwhm.cen, data=abcd)
+abcd$qc <- abcd.model$coefficients[1] + residuals(abcd.model)
+abcd$fwhm <- NULL
+ggplot(abcd, aes(x=qc, fill=pipeline)) + geom_histogram()
+
+abcd.corrected <- dcast(abcd, subject + scheme ~ pipeline, value.var = "qc")
+ggplot(abcd.corrected, aes(x=OtherPipeline, y=QSIPrep)) + 
+  geom_abline() + geom_point() + ggtitle("ABCD QC") + xlab("MMPS Preprocessed")
+```
+
+```{r hcp_compare}
+hcp <- subset(qc.fwhm, scheme=="HCP-Lifespan")
+hcp <- hcp[!duplicated(hcp[,c('subject', 'pipeline')]),]
+hcp$fwhm.cen <- hcp$fwhm - mean(hcp$fwhm)
+
+hcp.test <- lmer(qc ~ fwhm.cen + pipeline + (1 | subject), hcp)
+summary(hcp.test)
+hcp.fwhm.model <- lmer(fwhm ~ pipeline + (1 | subject), data=hcp)
+summary(hcp.fwhm.model)
+
+
+hcp.model <- lm(qc ~ fwhm.cen, data=hcp)
+hcp$qc <- hcp.model$coefficients[1] + residuals(hcp.model)
+hcp$fwhm <- NULL
+ggplot(hcp, aes(x=qc, fill=pipeline)) + geom_histogram()
+
+hcp.corrected <- dcast(hcp, subject + scheme ~ pipeline, value.var = "qc")
+ggplot(hcp.corrected, aes(x=OtherPipeline, y=QSIPrep)) + 
+  geom_abline() + geom_point() + ggtitle("HCP QC") + xlab("HCP Diffusion")
+
+```
+
+```{r pnc_compare}
+pnc <- subset(qc.fwhm, scheme=="DTI 64")
+pnc <- pnc[!duplicated(pnc[,c('subject', 'pipeline')]),]
+pnc$fwhm.cen <- pnc$fwhm - mean(pnc$fwhm)
+pnc.fwhm.model <- lmer(fwhm ~ pipeline + (1 | subject), data=pnc)
+summary(pnc.fwhm.model)
+pnc.test <- lmer(qc ~ fwhm.cen + pipeline + (1 | subject), pnc)
+summary(pnc.test)
+
+pnc.model <- lm(qc ~ fwhm.cen, data=pnc)
+pnc$qc <- pnc.model$coefficients[1] + residuals(pnc.model)
+pnc$fwhm <- NULL
+ggplot(pnc, aes(x=qc, fill=pipeline)) + geom_histogram()
+
+pnc.corrected <- dcast(pnc, subject + scheme ~ pipeline, value.var = "qc")
+ggplot(pnc.corrected, aes(x=OtherPipeline, y=QSIPrep)) + 
+  geom_abline() + geom_point() + ggtitle("PNC QC") + xlab("FSL TOPUP/eddy")
+
+```
+
+```{r noddi_compare}
+noddi <- subset(qc.fwhm, scheme=="MultiShell 113")
+noddi <- noddi[!duplicated(noddi[,c('subject', 'pipeline')]),]
+noddi <- noddi[complete.cases(noddi),]
+noddi$fwhm.cen <- noddi$fwhm - mean(noddi$fwhm, na.rm=TRUE)
+noddi.fwhm.model <- lmer(fwhm ~ pipeline + (1 | subject), data=noddi)
+summary(noddi.fwhm.model)
+noddi.test <- lmer(qc ~ fwhm.cen + pipeline + (1 | subject), noddi)
+summary(noddi.test)
+
+# Adjust fwhm predictor
+noddi.model <- lm(qc ~ fwhm.cen, data=noddi)
+noddi$qc <- noddi.model$coefficients[1] + residuals(noddi.model)
+noddi$fwhm <- NULL
+ggplot(noddi, aes(x=qc, fill=pipeline)) + geom_histogram()
+
+
+noddi.corrected <- dcast(noddi, subject + scheme ~ pipeline, value.var = "qc")
+ggplot(noddi.corrected, aes(x=OtherPipeline, y=QSIPrep)) + 
+  geom_abline() + geom_point() + ggtitle("GRMPY QC") + xlab("FSL TOPUP/eddy")
+```
+
+
+```{r hbn_compare}
+hbn <- subset(qc.fwhm, scheme=="HBN")
+hbn$fwhm <- hbn$fwhm - mean(hbn$fwhm)
+hbn.fwhm.model <- lmer(fwhm ~ pipeline + (1 | subject), data=hbn)
+summary(hbn.fwhm.model)
+
+hbn.test <- lmer(qc ~ fwhm + pipeline + (1 | subject), hbn)
+summary(hbn.test)
+
+hbn.model <- lm(qc ~ fwhm, data=hbn)
+hbn$qc <- hbn.model$coefficients[1] + residuals(hbn.model)
+hbn$fwhm <- NULL
+ggplot(hbn, aes(x=qc, fill=pipeline)) + geom_histogram()
+
+hbn.corrected <- dcast(hbn, subject + scheme ~ pipeline, value.var = "qc")
+ggplot(hbn.corrected, aes(x=OtherPipeline, y=QSIPrep)) + 
+  geom_abline() + geom_point() + ggtitle("HBN QC") + xlab("dmriprep Preprocessed")
+```
+
+```{r corrected_qcs}
+corrected.qcs <- rbind(abcd.corrected, hcp.corrected, pnc.corrected, noddi.corrected, hbn.corrected)
+write.csv(corrected.qcs, "spherical_fwhm-corrected_qcs.csv")
+```
+
+```{r corrected_qcs2}
+
+ggplot(corrected.qcs, aes(x=OtherPipeline, y=QSIPrep, color=scheme)) + geom_abline() +
+  geom_point(alpha=0.8) + ggtitle("MultiShell Schemes") + xlab("Previous Pipeline") + 
+  xlim(0.6, 0.95) + ylim(0.6, 0.95) + theme_linedraw() + scale_color_brewer(palette="Dark2", limits=levels(qc.fwhm$scheme))
+
+```
+
+```{r model_tables}
+library(dplyr)
+library(broom.mixed)
+
+fwhm.models <- rbind(
+  tidy(abcd.fwhm.model) %>% mutate(scheme="ABCD"),
+  tidy(hbn.fwhm.model) %>% mutate(scheme="HBN"),
+  tidy(hcp.fwhm.model) %>% mutate(scheme="HCP-Lifespan"),
+  tidy(noddi.fwhm.model) %>% mutate(scheme="MultiShell 113"),
+  tidy(pnc.fwhm.model) %>% mutate(scheme="DTI 64")
+  ) %>%
+    mutate_each(funs(round(., 3)), -term, -scheme, -effect, -group)
+
+fwhm.mmodels <- subset(fwhm.models, term=="pipelineQSIPrep")[,c("scheme", "estimate", "std.error", "statistic", "p.value")]
+write.table(fwhm.models, file = "shell_multivolfwhm_lmestats.txt", sep = ",", quote = FALSE, row.names = F)
+
+
+
+qc.models <- rbind(
+  tidy(abcd.test) %>% mutate(scheme="ABCD"),
+  tidy(hbn.test) %>% mutate(scheme="HBN"),
+  tidy(hcp.test) %>% mutate(scheme="HCP-Lifespan"),
+  tidy(noddi.test) %>% mutate(scheme="MultiShell 113"),
+  tidy(pnc.test) %>% mutate(scheme="DTI 64")
+) %>%
+    mutate_each(funs(round(., 3)), -term, -scheme, -effect, -group)
+
+qc_table <- qc.models %>%
+    mutate_each(funs(round(., 3)), -term, -scheme) %>% 
+    gather(key, value, estimate, std.error, p.value, statistic) %>%
+    spread(scheme, value) 
+
+write.table(qc.models, file = "shell_qc_stats.txt", sep = ",", quote = FALSE, row.names = F)
+write.table(qc_table, file = "shell_qc_table.txt", sep = ",", quote = FALSE, row.names = F)
+
+```
+

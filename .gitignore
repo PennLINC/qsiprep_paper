@@ -3,3 +3,14 @@
 .Rhistory
 *.doc*
 hcp_testing
+
+qc_scripts/abcd_smoothness_vals.csv
+qc_scripts/hbn_smoothness_vals.csv
+qc_scripts/abcd_scanner_info.csv
+qc_scripts/abcd_subjects.txt
+qc_scripts/dsi_post.txt
+qc_scripts/dwi_pre.txt
+qc_scripts/hbn_src_report.txt
+qc_scripts/hbn_qsiprep_qc.csv
+qc_scripts/joint_abcd_subjects.txt
+qc_scripts/salt.txt

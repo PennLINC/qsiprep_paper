@@ -1,0 +1,130 @@
+---
+title: "Anonymize subject IDs so data can go on GitHub"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r read_and_anonymize}
+library(openssl)
+library(reshape2)
+library(plyr)
+
+# Load the qc data
+abcd.qc <- read.csv("abcd_qsiprep_padded_qc.csv", header=TRUE)
+abcd.qc$X <- NULL
+other.qc <- read.csv("qc_metrics.csv", header=TRUE)
+other.qc$X <- NULL
+qc.df <- rbind(abcd.qc, other.qc)
+rm(abcd.qc, other.qc)
+qc.df$X <- NULL
+qsiprep.data <- rename(qc.df[,c("FileName", "dMRI.QC.QSIPrep", "scheme")],
+                       c("dMRI.QC.QSIPrep"="qc"))
+qsiprep.data$pipeline <- "QSIPrep"
+
+other.data <- rename(qc.df[,c("FileName", "dMRI.QC.raw", "scheme")],
+                     c("dMRI.QC.raw"="qc"))
+other.data$pipeline <- "OtherPipeline"
+
+qc.data <- rbind(qsiprep.data, other.data)
+rm(qc.df, qsiprep.data, other.data)
+
+# Load the smoothness data
+fwhm.means <- read.csv("shelled_mean_fwhm.csv", header=TRUE)
+names(fwhm.means)[names(fwhm.means)=="study"] <- "scheme"
+
+grmpy.smoothness <- subset(fwhm.means, scheme=="MultiShell 113")
+#grmpy.qc <- subset(qc.data, scheme=="MultiShell 113")
+grmpy.smoothness$FileName <- grmpy.smoothness$subject
+#grmpy.mrg <- merge(grmpy.smoothness, grmpy.qc)
+
+pnc.smoothness <- subset(fwhm.means, scheme=="DTI 64")
+#pnc.qc <- subset(qc.data, scheme=="DTI 64")
+pnc.smoothness$FileName <- paste0("sub-", pnc.smoothness$subject, "_ses-PNC1")
+#pnc.mrg <- merge(pnc.smoothness, pnc.qc)
+
+hcp.smoothness <- subset(fwhm.means, scheme=="HCP-Lifespan")
+#hcp.qc <- subset(qc.data, scheme=="HCP-Lifespan")
+hcp.smoothness$FileName <- paste0("sub-", hcp.smoothness$subject, "_ses-1_dwi")
+#hcp.mrg <- merge(hcp.smoothness, hcp.qc)
+
+abcd.smoothness <- subset(fwhm.means, scheme=="ABCD")
+#abcd.qc <- subset(qc.data, scheme=="ABCD")
+abcd.smoothness$FileName <- paste0(abcd.smoothness$subject, "_ses-baselineYear1Arm1_dwi")
+#abcd.mrg <- merge(abcd.smoothness, abcd.qc)
+
+hbn.smoothness <- subset(fwhm.means, scheme=="HBN")
+#hbn.qc <- subset(fwhm.means, scheme=="HBN")
+hbn.smoothness$FileName <- paste0(hbn.smoothness$subject, "_dwi")
+#hbn.mrg <- merge(hbn.smoothness, hbn.qc)
+
+all.smoothness <- rbind(grmpy.smoothness, pnc.smoothness, hcp.smoothness, abcd.smoothness, hbn.smoothness)
+rm(grmpy.smoothness, pnc.smoothness, hcp.smoothness, abcd.smoothness)
+
+smooth.qc <- droplevels(merge(all.smoothness, qc.data))
+
+fileName <- 'salt.txt'
+salt <- readChar(fileName, file.info(fileName)$size)
+
+smooth.qc$subject <- sha256(smooth.qc$subject, key=salt)
+
+write.csv(smooth.qc, "qc_multivolfwhm_spherical.csv")
+
+
+```
+
+```{r cartesian}
+library(reshape2)
+library(plyr)
+qc.df <- read.csv("qc_metrics.csv", header=TRUE)
+qc.df$X <- NULL
+qsiprep.data <- rename(qc.df[,c("FileName", "dMRI.QC.QSIPrep", "scheme")],
+                       c("dMRI.QC.QSIPrep"="qc"))
+qsiprep.data$pipeline <- "QSIPrep"
+
+other.data <- rename(qc.df[,c("FileName", "dMRI.QC.raw", "scheme")],
+                     c("dMRI.QC.raw"="qc"))
+other.data$pipeline <- "Raw"
+
+qc.data <- rbind(qsiprep.data, other.data)
+rm(qc.df, qsiprep.data, other.data)
+
+cart.smooth <- read.csv("nonshelled_mean_fwhm.csv", header=TRUE)
+cart.smooth$scheme <- cart.smooth$study
+cart.smooth$study <- NULL
+
+
+crash <- subset(cart.smooth, scheme == "DSI 258")
+crash$subject <- sub("_space-T1w_desc-preproc", "", crash$subject)
+crash$FileName <- paste0('sub-', crash$subject, '_dwi')
+crash.qc <- subset(qc.data, scheme == "DSI 258")
+crash.both <- merge(crash, crash.qc)
+
+csdsi <- subset(cart.smooth, scheme == "CS-DSI")
+# dumb naming issues
+csdsi$subject <- sub("_space-T1w_desc-preproc", "", csdsi$subject)
+csdsi$subject <- sub("ses-ses-", "ses-", csdsi$subject)
+csdsi.qc <- subset(qc.data, scheme=="CS-DSI")
+csdsi$FileName <- paste0("sub-", csdsi$subject)
+csdsi.both <- merge(csdsi.qc, csdsi)
+
+q7 <- subset(cart.smooth, scheme=="DSI 789")
+q7$subject <- sub("_space-T1w_desc-preproc", "", q7$subject)
+q7.qc <- subset(qc.data, scheme=="DSI 789")
+q7$FileName <- paste0("sub-", q7$subject)
+q7.both <- merge(q7, q7.qc)
+
+
+all.cartesian <- rbind(crash.both, csdsi.both, q7.both)
+all.cartesian$subject <- sha256(all.cartesian$subject, key=salt)
+all.cartesian$FileName <- NULL
+all.cartesian$study <- NULL
+all.cartesian$source <- NULL
+
+write.csv(all.cartesian, "qc_multivolfwhm_cartesian.csv")
+
+
+
+```

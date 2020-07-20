@@ -110,7 +110,11 @@ Instead of running on FlyWheel, the HCP data was processed locally on
 sped up the running of `eddy` by more than a factor of 10. Running the CPU
 version on FlyWheel was taking up to 56 hours per subject, which was
 prohibitive. The results are located in
-`/storage/mcieslak/multishell_qc/tome_output`. The qc data were collected
+`/storage/mcieslak/multishell_qc/tome_output`. The run of `eddy` was configured
+to both use the GPU and use `--flm quadratic` to match the HCP diffusion pipelines.
+The exact eddy params can be found in `qc_scripts/eddy_params.json`.
+
+The qc data were collected
 using `qc_scripts/dl_hcp_qc.py`. The script name is misleading because the
 data was all located on the local machine. All it really does is aggregate
 the qc files.

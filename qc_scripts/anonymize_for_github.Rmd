@@ -1,0 +1,66 @@
+---
+title: "Anonymize subject IDs so data can go on GitHub"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r read_and_anonymize}
+library(openssl)
+# Load the smoothness data
+grmpy.smoothness <- read.csv("grmpy_smoothness_vals.csv", header=TRUE)
+grmpy.smoothness$FileName <- grmpy.smoothness$subject
+
+pnc.smoothness <- read.csv("pnc_smoothness_vals.csv", header=TRUE)
+pnc.smoothness$FileName <- paste0("sub-", pnc.smoothness$subject, "_ses-PNC1")
+
+hcp.smoothness <- read.csv("hcp_smoothness_vals.csv", header=TRUE)
+hcp.smoothness$FileName <- paste0("sub-", hcp.smoothness$subject, "_ses-1_dwi")
+
+abcd.smoothness <- read.csv("abcd_smoothness_vals.csv", header=TRUE)
+abcd.smoothness$FileName <- paste0(abcd.smoothness$subject, "_ses-baselineYear1Arm1_dwi")
+
+hbn.smoothness <- read.csv("hbn_smoothness_vals.csv", header=TRUE)
+hbn.smoothness$FileName <- paste0(hbn.smoothness$subject, "_dwi")
+
+all.smoothness <- rbind(grmpy.smoothness, pnc.smoothness, hcp.smoothness, abcd.smoothness, hbn.smoothness)
+rm(grmpy.smoothness, pnc.smoothness, hcp.smoothness, abcd.smoothness)
+
+# Load the qc data
+abcd.qc <- read.csv("abcd_qsiprep_padded_qc.csv", header=TRUE)
+abcd.qc$X <- NULL
+other.qc <- read.csv("qc_metrics.csv", header=TRUE)
+other.qc$X <- NULL
+all.qc <- rbind(abcd.qc, other.qc)
+rm(abcd.qc, other.qc)
+
+smooth.qc <- droplevels(merge(all.smoothness, all.qc))
+smooth.qc$Bad.Slices.QSIPrep <- NULL
+smooth.qc$Bad.Slices.Raw <- NULL
+smooth.qc$FileName <- NULL
+rm(all.qc, all.smoothness)
+smooth.qc$delta.qc <- with(smooth.qc, dMRI.QC.QSIPrep - dMRI.QC.raw)
+smooth.qc$delta.fwhm <- with(smooth.qc, qsiprep_fwhm - other_fwhm)
+
+qsiprep.data <- rename(smooth.qc[,c("subject", "dMRI.QC.QSIPrep", "qsiprep_fwhm", "scheme")],
+                       c("dMRI.QC.QSIPrep"="qc", "qsiprep_fwhm"="fwhm"))
+qsiprep.data$pipeline <- "QSIPrep"
+
+other.data <- rename(smooth.qc[,c("subject", "dMRI.QC.raw", "other_fwhm", "scheme")],
+                       c("dMRI.QC.raw"="qc", "other_fwhm"="fwhm"))
+other.data$pipeline <- "PreviousPipeline"
+
+qc.fwhm <- rbind(qsiprep.data, other.data)
+
+fileName <- 'salt.txt'
+salt <- readChar(fileName, file.info(fileName)$size)
+
+qc.fwhm$subject <- sha256(qc.fwhm$subject, key=salt)
+
+write.csv(qc.fwhm, "qc_fwhm.csv")
+
+
+```
+

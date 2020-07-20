@@ -1,0 +1,127 @@
+---
+title: "Gathering the QC data from"
+output: html_document
+---
+
+## Before/After difference
+
+```{r}
+get.qc <- function(pre.csv, post.csv){
+  pre.data <- read.csv(pre.csv, sep="\t")
+  pre.data$method <- 'None'
+  post.data <- read.csv(post.csv, sep="\t")
+  post.data$method <- 'QSIPrep' 
+  simple.pre <- pre.data[,c('FileName', 'B.table.matched', 'Neighboring.DWI.correlation')]
+  simple.post <- post.data[,c('FileName', 'B.table.matched', 'Neighboring.DWI.correlation')]
+  names(simple.pre) <- c('FileName', 'dMRI.QC.raw', 'Bad.Slices.Raw')
+  simple.pre$FileName <- row.names(simple.pre)
+  row.names(simple.pre) <- NULL
+  names(simple.post) <- c('FileName', 'dMRI.QC.QSIPrep', 'Bad.Slices.QSIPrep')
+  simple.post$FileName <- row.names(simple.post)
+  row.names(simple.post) <- NULL
+  simple.post$FileName <- gsub('_space-T1w_desc-preproc', '', simple.post$FileName)
+  return(merge(simple.pre, simple.post))
+  
+}
+
+compare.to.other <- function(dtf){
+  dtf$OtherPipelineQC <- dtf$dMRI.QC.QSIPrep
+  dtf$OtherPipelineBadSlices <- dtf$Bad.Slices.QSIPrep
+  dtf$dMRI.QC.raw <- NULL
+  dtf$Bad.Slices.Raw <- NULL
+  dtf$dMRI.QC.QSIPrep <- NULL
+  dtf$Bad.Slices.QSIPrep <- NULL
+  return(dtf)
+}
+
+dsi111 <- get.qc("report_raw.txt", "report_qsiprep.txt")
+dsi111$scheme <- "DSI 113"
+dsi258 <- get.qc("dsi_pre.txt", "dsi_post.txt")
+dsi258$scheme <- "DSI 258"
+grmpy.pines <- compare.to.other(get.qc("grmpy_pines_qc.txt", "grmpy_pines_qc.txt"))
+pnc.roalf <- compare.to.other(get.qc("pnc_roalf_qc.txt", "pnc_roalf_qc.txt"))
+hbn.rokem <- compare.to.other(get.qc("hbn_src_report.txt", "hbn_src_report.txt"))
+# Load the QC metrics from the MMCP-processed data
+# abcd.ndar <- compare.to.other(get.qc("abcd_ndar_qc.txt", "abcd_ndar_qc.txt"))
+# abcd.scanner.info <- read.csv("abcd_scanner_info.csv")
+# abcd.scanner.info$FileName = paste0(abcd.scanner.info$FileName, "_ses-baselineYear1Arm1_run-01")
+# abcd.ndar.all <- merge(abcd.ndar, abcd.scanner.info)
+
+```
+
+
+Now load the ABCD, PNC, Glymphatic, Q7-DSI and CS-DSI
+
+```{r}
+library(ggplot2)
+
+columns.to.get <- c("file_name", "raw_neighbor_corr", "raw_num_bad_slices", "t1_neighbor_corr", "t1_num_bad_slices")
+load.qsiprep.qc <- function(fname, scheme){
+  dtf <- read.csv(fname, header=TRUE)
+  dtf <- dtf[,columns.to.get]
+  names(dtf) <- c("FileName", "dMRI.QC.raw", "Bad.Slices.Raw", "dMRI.QC.QSIPrep", "Bad.Slices.QSIPrep")
+  dtf$scheme <- scheme
+  return(dtf)
+}
+
+mark.as.raw <- function(dtf){
+  dtf$dMRI.QC.raw <- dtf$OtherPipelineQC
+  dtf$Bad.Slices.Raw <- dtf$OtherPipelineBadSlices
+  dtf$OtherPipelineQC <- NULL
+  dtf$OtherPipelineBadSlices <- NULL
+  return(dtf)
+}
+
+q7.dsi <- load.qsiprep.qc("q7_qc.csv", "DSI 789")
+pnc.dti <- load.qsiprep.qc("pnc_results.csv", "DTI 64")
+pnc.dti$Bad.Slices.Raw <- NULL
+pnc.dti$dMRI.QC.raw <- NULL
+pnc.dti.all <- merge(pnc.dti, mark.as.raw(pnc.roalf))
+grmpy.multishell <- load.qsiprep.qc("grmpy_qsiprep_qc.csv", "MultiShell 113")
+grmpy.multishell$FileName <- gsub("sub-(\\d+)_ses-.*_acq-multiband", "\\1", grmpy.multishell$FileName)
+grmpy.all <- mark.as.raw(subset(merge(grmpy.multishell, grmpy.pines), OtherPipelineQC > 0))
+write.csv(grmpy.all, "grmpy_qc_comparison.csv")
+cs.dsi <- load.qsiprep.qc("csdsi_qc.csv", "CS-DSI")
+
+hcp.qsiprep1 <- read.csv("hcp_qsiprep_qc.csv")
+hcp.qsiprep <- data.frame(FileName=paste0(hcp.qsiprep1$file_name, "_dwi"),
+                          dMRI.QC.QSIPrep=hcp.qsiprep1$t1_neighbor_corr,
+                          Bad.Slices.QSIPrep=hcp.qsiprep1$t1_num_bad_slices)
+rm(hcp.qsiprep1)
+#hcp.qsiprep2 <- read.csv("hcp_qsiprep_smoothed.txt", sep="\t")[,c('FileName', 'Neighboring.DWI.correlation', 'X..Bad.Slices')]
+#names(hcp.qsiprep) <- c('FileName', 'dMRI.QC.QSIPrep', 'Bad.Slices.QSIPrep')
+hcp.hcp <- read.csv("hcp_report.txt", sep="\t")[,c('FileName', 'Neighboring.DWI.correlation', 'X..Bad.Slices')]
+names(hcp.hcp) <- c('FileName', 'dMRI.QC.raw', 'Bad.Slices.Raw')
+
+hcp.all <- merge(hcp.hcp, hcp.qsiprep)
+hcp.all$scheme <- "HCP-Lifespan"
+
+hbn.qsiprep <- load.qsiprep.qc("hbn_qsiprep_qc.csv", "HBN")
+hbn.qsiprep$FileName <- gsub("_ses.*", "_dwi", hbn.qsiprep$FileName)
+hbn.all <- mark.as.raw(subset(merge(hbn.qsiprep, hbn.rokem), OtherPipelineQC > 0))
+
+data <- rbind(
+  dsi111, dsi258, q7.dsi, pnc.dti.all, grmpy.all, hcp.all, cs.dsi, hbn.all
+)
+
+ggplot(data, aes(dMRI.QC.raw, dMRI.QC.QSIPrep)) +
+  geom_point() +
+  facet_wrap( ~ scheme) +
+  geom_abline(intercept=0,slope=1) +
+  ylim(0.5, 0.98) +
+  xlim(0.5, 0.98) +
+  coord_equal(ratio=1) +
+  theme_bw() +
+  xlab("Previous Pipeline") +
+  ylab("QSIPrep Output") +
+  ggtitle("NDC Score")
+
+```
+
+
+```{r}
+full.data <- na.omit(data)
+table(full.data$scheme)
+nrow(full.data)
+write.csv(full.data, "qc_metrics.csv")
+```
