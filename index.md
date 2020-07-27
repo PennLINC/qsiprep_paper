@@ -205,3 +205,34 @@ the command `aws s3 sync --exclude '*' --include '*dwi_eddy*' --acl public-read 
 Valerie Sydnor ran the QSIPrep processing on the FlyWheel version of these subjects. The
 script for downloading the qc scores is `qc_scripts/dl_hbn_qc.py` and the script for
 downloading the preprocssed dwi and gradients is `qc_scripts/download_preprocd_hbn.py`.
+
+
+# Statistics and Figures
+
+## Combining data from the many studies
+
+The csvs created from the earlier steps get combined for statistics and plots.
+The entrypoint for the csv data into the rest of the modeling is
+`qc_scripts/gather_qc_values.rmd`. This script reads the csv's downloaded from
+FlyWheel and copied from `dopamine`. The output is `qc_scripts/qc_metrics.csv`.
+
+Next, the subject IDs are anonymized using
+`qc_scripts/anonymize_for_github.Rmd`. This loads/merges the smoothness and
+qc csvs and anonymizes (via salt and hash) the subject names. The anonymized
+data is stored in
+
+  * `qc_scripts/qc_multivolfwhm_spherical.csv` for the shelled schemes
+  * `qc_scripts/qc_multivolfwhm_cartesian.csv` for the non-shelled schemes
+
+
+## Linear mixed effects on QC and FWHM
+
+The QC and FWHM data are used in `qc_scripts/multivolsmoothness_v_qc_stats_lmer.Rmd`
+and`qc_scripts/multivolsmoothness_v_qc_stats_cartesian_lmer.Rmd`. These produce the
+csv's that are displayed as supplementary tables 2.1-2.4. They also produce the 
+FWHM-corrected data that are plotted in Figures 2,3. Their outputs are
+
+ * `qc_scripts/nonspherical_fwhm-corrected_qcs.csv`: the qc values for non-shelled schemes with the effect of FWHM partialled out.
+  * `qc_scripts/spherical_fwhm-corrected_qcs.csv`: the qc values for shelled schemes with the effect of FWHM partialled out.
+ * `qc_scripts/(cart|sphere)_fwhm_stats.txt`: table of model params for `FWHM ~ pipeline + ( 1 | subject)`
+ * `qc_scripts/cart_qc_stats.txt`: table of model params for `QC ~ centered.FWHM + pipeline + ( 1 | subject)`

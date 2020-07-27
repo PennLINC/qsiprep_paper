@@ -126,11 +126,11 @@ ggplot(noddi.corrected, aes(x=OtherPipeline, y=QSIPrep)) +
 
 ```{r hbn_compare}
 hbn <- subset(qc.fwhm, scheme=="HBN")
-hbn$fwhm <- hbn$fwhm - mean(hbn$fwhm)
+hbn$fwhm.cen <- hbn$fwhm - mean(hbn$fwhm)
 hbn.fwhm.model <- lmer(fwhm ~ pipeline + (1 | subject), data=hbn)
 summary(hbn.fwhm.model)
 
-hbn.test <- lmer(qc ~ fwhm + pipeline + (1 | subject), hbn)
+hbn.test <- lmer(qc ~ fwhm.cen + pipeline + (1 | subject), hbn)
 summary(hbn.test)
 
 hbn.model <- lm(qc ~ fwhm, data=hbn)
@@ -160,6 +160,22 @@ ggplot(corrected.qcs, aes(x=OtherPipeline, y=QSIPrep, color=scheme)) + geom_abli
 library(dplyr)
 library(broom.mixed)
 
+clean.table <- function(dtf, terms=c("pipelineQSIPrep", "fwhm.cen")){
+  bonf <- p.adjust(dtf$p.value)
+  bonf.txt <- sprintf("%.3f", bonf)
+  bonf.txt[bonf < 0.001] <- "< 0.001"
+  dtf[["p-Value (Bonf.)"]] <- bonf.txt
+  potential.cols <- c("Scheme", "Term", "Estimate", "Std. Error", "t-Statistic", "p-Value (Bonf.)")
+  cols <- intersect(potential.cols, colnames(dtf))
+  
+  if ("Term" %in% colnames(dtf)){
+    dtf <- subset(dtf, Term %in% terms)[,cols]
+    dtf$Term <- sub("pipelineQSIPrep", "Pipeline", dtf$Term)
+    dtf$Term <- sub("fwhm.cen", "FWHM", dtf$Term)
+  }
+return(dtf)
+}
+
 fwhm.models <- rbind(
   tidy(abcd.fwhm.model) %>% mutate(scheme="ABCD"),
   tidy(hbn.fwhm.model) %>% mutate(scheme="HBN"),
@@ -167,9 +183,11 @@ fwhm.models <- rbind(
   tidy(noddi.fwhm.model) %>% mutate(scheme="MultiShell 113"),
   tidy(pnc.fwhm.model) %>% mutate(scheme="DTI 64")
   ) %>%
-    mutate_each(funs(round(., 3)), -term, -scheme, -effect, -group)
+    mutate_each(funs(round(., 3)), -term, -scheme, -effect, -group, -p.value) %>%
+    plyr::rename(c("scheme"="Scheme", "term"="Term", "estimate"="Estimate", "std.error"="Std. Error",
+                 "statistic"="t-Statistic")) %>%
+  clean.table()
 
-fwhm.mmodels <- subset(fwhm.models, term=="pipelineQSIPrep")[,c("scheme", "estimate", "std.error", "statistic", "p.value")]
 write.table(fwhm.models, file = "shell_multivolfwhm_lmestats.txt", sep = ",", quote = FALSE, row.names = F)
 
 
@@ -181,15 +199,12 @@ qc.models <- rbind(
   tidy(noddi.test) %>% mutate(scheme="MultiShell 113"),
   tidy(pnc.test) %>% mutate(scheme="DTI 64")
 ) %>%
-    mutate_each(funs(round(., 3)), -term, -scheme, -effect, -group)
-
-qc_table <- qc.models %>%
-    mutate_each(funs(round(., 3)), -term, -scheme) %>% 
-    gather(key, value, estimate, std.error, p.value, statistic) %>%
-    spread(scheme, value) 
+    mutate_each(funs(round(., 3)), -term, -scheme, -effect, -group, -p.value) %>%
+    plyr::rename(c("scheme"="Scheme", "term"="Term", "estimate"="Estimate", "std.error"="Std. Error",
+                 "statistic"="t-Statistic")) %>%
+  clean.table()
 
 write.table(qc.models, file = "shell_qc_stats.txt", sep = ",", quote = FALSE, row.names = F)
-write.table(qc_table, file = "shell_qc_table.txt", sep = ",", quote = FALSE, row.names = F)
 
 ```
 
