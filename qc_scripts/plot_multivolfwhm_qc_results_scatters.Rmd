@@ -1,0 +1,203 @@
+---
+title: "QC and smoothness"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r qc_scatters}
+library(ggplot2)
+library(reshape2)
+library(ggpubr)
+library(ggpattern)
+library(plyr)
+library(ggsignif)
+library(lmerTest)
+
+scatter.theme <- theme(
+  plot.title = element_text(hjust = 0.5, size=12))
+
+pipeline.levels <- c("Raw", "QSIPrep", "OtherPipeline")
+study.levels <- c("DTI 64", "MultiShell 113", "HBN", "ABCD", "HCP-Lifespan")
+multishell.pallete <- "Set1"
+# Load the QC data
+sphere.corrected.qc <- read.csv("spherical_fwhm-corrected_qcs.csv", header=TRUE)
+sphere.corrected.qc$scheme <- factor(sphere.corrected.qc$scheme, levels=study.levels)
+
+
+qc.ref.lines <- geom_abline(slope=1, intercept=seq(-1, 1, by=0.1), size=0.15, color="gray", alpha=0.8)
+fwhm.ref.lines <- geom_abline(slope=1, intercept=seq(-2, 2, by=1), size=0.15, color="gray", alpha=0.8)
+
+# Load the FWHM data
+shelled <- rbind(
+  read.csv("multi_smoothness_vals_shelled.csv", header=TRUE),
+  read.csv("raw_shelled_multivol_smoothness_vals.csv", header=TRUE))
+shelled$pipeline <- factor(shelled$pipeline, levels=pipeline.levels)
+shelled$scheme <- factor(shelled$study, levels=study.levels)
+
+shelled.fwhm <- ddply(shelled, .(subject, pipeline, scheme), summarise, fwhm=mean(fwhm))
+shelled.fwhm.compare <- dcast(shelled.fwhm, subject + scheme ~ pipeline, value.var = "fwhm")
+
+sphere.scatters.qc <- ggplot(
+  sphere.corrected.qc, aes(x=OtherPipeline, y=QSIPrep, color=scheme)) +
+  qc.ref.lines + geom_abline() +
+  geom_point(alpha=0.7, stroke=0) + xlab("Previous Pipeline") + 
+  xlim(0.2, 0.95) + ylim(0.2, 0.95) + theme_classic() + 
+  labs(title="QC: DWI Neighbor Corr.") + 
+  coord_fixed() +
+  scale_color_brewer(palette=multishell.pallete,
+                     name="") +
+  scatter.theme
+
+sphere.scatters.fwhm <- ggplot(
+  shelled.fwhm.compare, aes(x=OtherPipeline, y=QSIPrep, color=scheme)) +
+  fwhm.ref.lines + geom_abline() +
+  geom_point(alpha=0.7, stroke=0) + xlab("Previous Pipeline") + 
+  xlim(3.5, 6.1) + ylim(3.5, 6.1) + theme_classic() + 
+  labs(title="FWHM (mm)") + 
+  coord_fixed() +
+  scale_color_brewer(palette=multishell.pallete,
+                     name="") +
+  scatter.theme
+
+sphere.figure <- ggarrange(
+  sphere.scatters.fwhm, sphere.scatters.qc,
+  nrow=1, ncol=2,
+  widths=c(1,1),
+  labels=c("A", "B"),
+  common.legend=TRUE,
+  legend="bottom"
+)
+
+sphere.figure.annot <- annotate_figure(
+  sphere.figure,
+  top=text_grob("Shelled Schemes", face = "bold", size = 14))
+sphere.figure.annot
+
+ggsave("shell_scatters.png", width=7, units="in", height=3.5)
+
+```
+
+
+
+
+
+```{r nonshelled_plot}
+study.levels <- c("CS-DSI", "DSI 258", "DSI 789")
+cart.pallete <- "Paired"
+
+# Load the QC data
+cart.corrected.qc <- read.csv("nonspherical_fwhm-corrected_qcs.csv", header=TRUE)
+cart.corrected.qc$scheme <- factor(cart.corrected.qc$scheme, levels=study.levels)
+
+# Load the FWHM data
+nonshelled <- read.csv("cartesian_multivol_smoothness_vals.csv", header=TRUE)
+nonshelled$pipeline <- factor(nonshelled$pipeline, levels=pipeline.levels)
+nonshelled$scheme <- factor(nonshelled$study, levels=study.levels)
+nonshelled$subject <- sub("_space-T1w_desc-preproc", "", nonshelled$subject)
+
+nonshelled.fwhm <- ddply(nonshelled, .(subject, pipeline, scheme), summarise, fwhm=mean(fwhm))
+nonshelled.fwhm.compare <- dcast(nonshelled.fwhm, subject + scheme ~ pipeline, value.var = "fwhm")
+
+
+cart.scatters.qc <- ggplot(
+  cart.corrected.qc, aes(x=Raw, y=QSIPrep, color=scheme)) + 
+  qc.ref.lines + geom_abline() +
+  geom_point(alpha=0.7, stroke=0) + xlab("Raw Data") + ylab("QSIPrep") +
+  xlim(0.55, 0.86) + ylim(0.55, 0.86) + theme_classic() + 
+  labs(title="QC: DWI Neighbor Corr.") + coord_fixed() +
+  scale_color_brewer(palette=cart.pallete,
+                     name="") +
+  scatter.theme
+
+
+
+cart.scatters.fwhm <- ggplot(
+  nonshelled.fwhm.compare, aes(x=Raw, y=QSIPrep, color=scheme)) +
+  fwhm.ref.lines + geom_abline() +
+  geom_point(alpha=0.7, stroke=0) + xlab("Raw Data") + 
+  xlim(3.5, 5.5) + ylim(3.5, 5.5) +
+  theme_classic() + 
+  labs(title="FWHM (mm)") + 
+  coord_fixed() +
+  scale_color_brewer(palette=cart.pallete,
+                     name="") +
+  scatter.theme
+
+cart.figure <- ggarrange(
+  cart.scatters.fwhm, cart.scatters.qc,
+  nrow=1, ncol=2,
+  widths=c(1,1),
+  labels=c("C", "D"),
+  common.legend=TRUE,
+  legend="bottom"
+)
+
+cart.figure.annot <- annotate_figure(
+  cart.figure,
+  top=text_grob("Non-Shelled Schemes", face = "bold", size = 14))
+
+cart.figure.annot
+ggsave("shell_scatters.png", width=7, units="in", height=3.5)
+```
+
+
+```{r combine}
+
+
+all.plots <- ggarrange(
+  sphere.figure.annot, NULL, cart.figure.annot,
+  ncol = 1, nrow = 3,
+  heights = c(1, 0.05, 1)
+)
+all.plots
+
+size <- 8
+ggsave("all_scatters.png", width=size-1.5, units="in", height=size)
+```
+
+
+```{r shelled_fwhm_v_raw}
+
+qp.v.raw.scatter <- ggplot(
+  shelled.fwhm.compare, aes(x=Raw, y=QSIPrep, color=scheme)) +
+  fwhm.ref.lines + geom_abline() +
+  geom_point(alpha=0.7, stroke=0) + xlab("Raw") + 
+  xlim(3, 6.1) + ylim(3, 6.1) + theme_classic() + 
+  labs(title="Raw vs. QSIPrep") + 
+  coord_fixed() +
+  scale_color_brewer(palette=multishell.pallete,
+                     name="") +
+  scatter.theme
+
+other.v.rqw.scatter <- ggplot(
+  shelled.fwhm.compare, aes(x=Raw, y=OtherPipeline, color=scheme)) +
+  fwhm.ref.lines + geom_abline() +
+  geom_point(alpha=0.7, stroke=0) + ylab("Previous Pipeline") + 
+  xlim(3, 6.1) + ylim(3, 6.1) + theme_classic() + 
+  labs(title="Raw vs. Previous Pipeline") + 
+  coord_fixed() +
+  scale_color_brewer(palette=multishell.pallete,
+                     name="") +
+  scatter.theme
+
+sph.fwhm.figure <- ggarrange(
+  other.v.rqw.scatter, qp.v.raw.scatter,
+  nrow=1, ncol=2,
+  widths=c(1,1),
+  common.legend=TRUE,
+  legend="bottom"
+)
+
+sph.fwhm.annot <- annotate_figure(
+  sph.fwhm.figure,
+  top=text_grob("FWHM (mm)", face = "bold", size = 14))
+sph.fwhm.annot
+
+ggsave("raw_v_pipeline_fwhm.png", width=7, units="in", height=5)
+
+```
+
+```
