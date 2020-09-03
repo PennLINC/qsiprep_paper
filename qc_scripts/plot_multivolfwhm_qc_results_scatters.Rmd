@@ -31,21 +31,14 @@ qc.ref.lines <- geom_abline(slope=1, intercept=seq(-1, 1, by=0.1), size=0.15, co
 fwhm.ref.lines <- geom_abline(slope=1, intercept=seq(-2, 2, by=1), size=0.15, color="gray", alpha=0.8)
 
 # Load the FWHM data
-shelled <- rbind(
-  read.csv("multi_smoothness_vals_shelled.csv", header=TRUE),
-  read.csv("raw_shelled_multivol_smoothness_vals.csv", header=TRUE))
-shelled$pipeline <- factor(shelled$pipeline, levels=pipeline.levels)
-shelled$scheme <- factor(shelled$study, levels=study.levels)
-
-shelled.fwhm <- ddply(shelled, .(subject, pipeline, scheme), summarise, fwhm=mean(fwhm))
-shelled.fwhm.compare <- dcast(shelled.fwhm, subject + scheme ~ pipeline, value.var = "fwhm")
+shelled.fwhm.compare <- read.csv("shelled_smoothness_anonymous.csv", header=TRUE)
 
 sphere.scatters.qc <- ggplot(
   sphere.corrected.qc, aes(x=OtherPipeline, y=QSIPrep, color=scheme)) +
   qc.ref.lines + geom_abline() +
-  geom_point(alpha=0.7, stroke=0) + xlab("Previous Pipeline") + 
-  xlim(0.2, 0.95) + ylim(0.2, 0.95) + theme_classic() + 
-  labs(title="QC: DWI Neighbor Corr.") + 
+  geom_point(alpha=0.7, stroke=0) + xlab("Previous Pipeline") +
+  xlim(0.2, 0.95) + ylim(0.2, 0.95) + theme_classic() +
+  labs(title="QC: DWI Neighbor Corr.") +
   coord_fixed() +
   scale_color_brewer(palette=multishell.pallete,
                      name="") +
@@ -54,9 +47,9 @@ sphere.scatters.qc <- ggplot(
 sphere.scatters.fwhm <- ggplot(
   shelled.fwhm.compare, aes(x=OtherPipeline, y=QSIPrep, color=scheme)) +
   fwhm.ref.lines + geom_abline() +
-  geom_point(alpha=0.7, stroke=0) + xlab("Previous Pipeline") + 
-  xlim(3.5, 6.1) + ylim(3.5, 6.1) + theme_classic() + 
-  labs(title="FWHM (mm)") + 
+  geom_point(alpha=0.7, stroke=0) + xlab("Previous Pipeline") +
+  xlim(3.5, 6.1) + ylim(3.5, 6.1) + theme_classic() +
+  labs(title="FWHM (mm)") +
   coord_fixed() +
   scale_color_brewer(palette=multishell.pallete,
                      name="") +
@@ -93,20 +86,17 @@ cart.corrected.qc <- read.csv("nonspherical_fwhm-corrected_qcs.csv", header=TRUE
 cart.corrected.qc$scheme <- factor(cart.corrected.qc$scheme, levels=study.levels)
 
 # Load the FWHM data
-nonshelled <- read.csv("cartesian_multivol_smoothness_vals.csv", header=TRUE)
-nonshelled$pipeline <- factor(nonshelled$pipeline, levels=pipeline.levels)
-nonshelled$scheme <- factor(nonshelled$study, levels=study.levels)
-nonshelled$subject <- sub("_space-T1w_desc-preproc", "", nonshelled$subject)
+nonshelled <- read.csv("nonshelled_smoothness_anonymous.csv", header=TRUE)
 
 nonshelled.fwhm <- ddply(nonshelled, .(subject, pipeline, scheme), summarise, fwhm=mean(fwhm))
 nonshelled.fwhm.compare <- dcast(nonshelled.fwhm, subject + scheme ~ pipeline, value.var = "fwhm")
 
 
 cart.scatters.qc <- ggplot(
-  cart.corrected.qc, aes(x=Raw, y=QSIPrep, color=scheme)) + 
+  cart.corrected.qc, aes(x=Raw, y=QSIPrep, color=scheme)) +
   qc.ref.lines + geom_abline() +
   geom_point(alpha=0.7, stroke=0) + xlab("Raw Data") + ylab("QSIPrep") +
-  xlim(0.55, 0.86) + ylim(0.55, 0.86) + theme_classic() + 
+  xlim(0.55, 0.86) + ylim(0.55, 0.86) + theme_classic() +
   labs(title="QC: DWI Neighbor Corr.") + coord_fixed() +
   scale_color_brewer(palette=cart.pallete,
                      name="") +
@@ -117,10 +107,10 @@ cart.scatters.qc <- ggplot(
 cart.scatters.fwhm <- ggplot(
   nonshelled.fwhm.compare, aes(x=Raw, y=QSIPrep, color=scheme)) +
   fwhm.ref.lines + geom_abline() +
-  geom_point(alpha=0.7, stroke=0) + xlab("Raw Data") + 
+  geom_point(alpha=0.7, stroke=0) + xlab("Raw Data") +
   xlim(3.5, 5.5) + ylim(3.5, 5.5) +
-  theme_classic() + 
-  labs(title="FWHM (mm)") + 
+  theme_classic() +
+  labs(title="FWHM (mm)") +
   coord_fixed() +
   scale_color_brewer(palette=cart.pallete,
                      name="") +
@@ -164,9 +154,9 @@ ggsave("all_scatters.png", width=size-1.5, units="in", height=size)
 qp.v.raw.scatter <- ggplot(
   shelled.fwhm.compare, aes(x=Raw, y=QSIPrep, color=scheme)) +
   fwhm.ref.lines + geom_abline() +
-  geom_point(alpha=0.7, stroke=0) + xlab("Raw") + 
-  xlim(3, 6.1) + ylim(3, 6.1) + theme_classic() + 
-  labs(title="Raw vs. QSIPrep") + 
+  geom_point(alpha=0.7, stroke=0) + xlab("Raw") +
+  xlim(3, 6.1) + ylim(3, 6.1) + theme_classic() +
+  labs(title="Raw vs. QSIPrep") +
   coord_fixed() +
   scale_color_brewer(palette=multishell.pallete,
                      name="") +
@@ -175,9 +165,9 @@ qp.v.raw.scatter <- ggplot(
 other.v.rqw.scatter <- ggplot(
   shelled.fwhm.compare, aes(x=Raw, y=OtherPipeline, color=scheme)) +
   fwhm.ref.lines + geom_abline() +
-  geom_point(alpha=0.7, stroke=0) + ylab("Previous Pipeline") + 
-  xlim(3, 6.1) + ylim(3, 6.1) + theme_classic() + 
-  labs(title="Raw vs. Previous Pipeline") + 
+  geom_point(alpha=0.7, stroke=0) + ylab("Previous Pipeline") +
+  xlim(3, 6.1) + ylim(3, 6.1) + theme_classic() +
+  labs(title="Raw vs. Previous Pipeline") +
   coord_fixed() +
   scale_color_brewer(palette=multishell.pallete,
                      name="") +

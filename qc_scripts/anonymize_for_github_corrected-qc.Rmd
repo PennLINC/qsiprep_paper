@@ -1,0 +1,46 @@
+---
+title: "Anonymize subject IDs so data can go on GitHub"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r read_and_anonymize}
+library(openssl)
+library(reshape2)
+library(plyr)
+
+# Load the qc data
+# Load the FWHM data
+shelled <- rbind(
+  read.csv("multi_smoothness_vals_shelled.csv", header=TRUE),
+  read.csv("raw_shelled_multivol_smoothness_vals.csv", header=TRUE))
+shelled$pipeline <- factor(shelled$pipeline, levels=pipeline.levels)
+shelled$scheme <- factor(shelled$study, levels=study.levels)
+shelled.fwhm <- ddply(shelled, .(subject, pipeline, scheme), summarise, fwhm=mean(fwhm))
+shelled.fwhm.compare <- dcast(shelled.fwhm, subject + scheme ~ pipeline, value.var = "fwhm")
+
+fileName <- 'salt.txt'
+salt <- readChar(fileName, file.info(fileName)$size)
+
+shelled.fwhm.compare$subject <- sha256(shelled.fwhm.compare$subject, key=salt)
+
+write.csv(shelled.fwhm.compare, "shelled_smoothness_anonymous.csv")
+
+
+```
+
+```{r cartesian}
+nonshelled <- read.csv("cartesian_multivol_smoothness_vals.csv", header=TRUE)
+nonshelled$pipeline <- factor(nonshelled$pipeline, levels=pipeline.levels)
+nonshelled$scheme <- factor(nonshelled$study, levels=study.levels)
+nonshelled$subject <- sub("_space-T1w_desc-preproc", "", nonshelled$subject)
+
+nonshelled$subject <- sha256(nonshelled$subject, key=salt)
+write.csv(nonshelled, "nonshelled_smoothness_anonymous.csv")
+
+
+
+```
