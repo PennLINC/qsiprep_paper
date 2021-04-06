@@ -1,0 +1,4 @@
+Scheme,Estimate,Std. Error,t-Statistic,p-Value (Bonf.)
+CS-DSI,0.042,0.002,21.478,5.5067e-34
+DSI 258,0.17,0.001,120.015,1.9026e-149
+DSI 789,0.113,0.008,13.99,8.6033e-09

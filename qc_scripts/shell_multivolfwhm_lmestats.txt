@@ -1,0 +1,6 @@
+Scheme,Estimate,Std. Error,t-Statistic,p-Value (Bonf.)
+DTI 64,-0.163,0.025,-6.47,5.6076e-09
+ABCD,-0.794,0.03,-26.284,3.2939e-47
+HBN,0.018,0.053,0.345,7.3287e-01
+HCP-Lifespan,-0.751,0.053,-14.089,5.7215e-21
+MultiShell 113,0.092,0.012,7.639,1.0990e-11

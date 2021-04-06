@@ -145,7 +145,7 @@ all.plots <- ggarrange(
 all.plots
 
 size <- 8
-ggsave("all_scatters.png", width=size-1.5, units="in", height=size)
+ggsave("all_scatters.svg", width=size-1.5, units="in", height=size)
 ```
 
 
@@ -186,7 +186,7 @@ sph.fwhm.annot <- annotate_figure(
   top=text_grob("FWHM (mm)", face = "bold", size = 14))
 sph.fwhm.annot
 
-ggsave("raw_v_pipeline_fwhm.png", width=7, units="in", height=5)
+ggsave("raw_v_pipeline_fwhm.svg", width=7, units="in", height=5)
 
 ```
 

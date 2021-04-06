@@ -12,7 +12,7 @@ library(lmerTest)
 library(reshape2)
 library(ggplot2)
 
-qc.fwhm <- read.csv("qc_multivolfwhm_spherical.csv", header=TRUE)
+qc.fwhm <- read.csv("qc_multivolfwhm_spherical.csv", header=TRUE)    
 
 smooth.compare <- dcast(qc.fwhm, scheme + subject ~ pipeline, value.var = "fwhm") 
 smooth.compare$delta.fwhm <- with(smooth.compare, QSIPrep-OtherPipeline)
@@ -45,14 +45,13 @@ abcd$fwhm.cen <- abcd$fwhm - mean(abcd$fwhm)
 abcd.fwhm.model <- lmer(fwhm ~ pipeline + (1 | subject), data=abcd)
 summary(abcd.fwhm.model)
 
-abcd.test <- lmer(qc ~ fwhm.cen + pipeline + (1 | subject), abcd)
-summary(abcd.test)
-
-
 abcd.model <- lm(qc ~ fwhm.cen, data=abcd)
 abcd$qc <- abcd.model$coefficients[1] + residuals(abcd.model)
 abcd$fwhm <- NULL
 ggplot(abcd, aes(x=qc, fill=pipeline)) + geom_histogram()
+
+abcd.test <- lmer(qc ~ pipeline + (1 | subject), abcd)
+summary(abcd.test)
 
 abcd.corrected <- dcast(abcd, subject + scheme ~ pipeline, value.var = "qc")
 ggplot(abcd.corrected, aes(x=OtherPipeline, y=QSIPrep)) + 
@@ -64,8 +63,6 @@ hcp <- subset(qc.fwhm, scheme=="HCP-Lifespan")
 hcp <- hcp[!duplicated(hcp[,c('subject', 'pipeline')]),]
 hcp$fwhm.cen <- hcp$fwhm - mean(hcp$fwhm)
 
-hcp.test <- lmer(qc ~ fwhm.cen + pipeline + (1 | subject), hcp)
-summary(hcp.test)
 hcp.fwhm.model <- lmer(fwhm ~ pipeline + (1 | subject), data=hcp)
 summary(hcp.fwhm.model)
 
@@ -74,6 +71,9 @@ hcp.model <- lm(qc ~ fwhm.cen, data=hcp)
 hcp$qc <- hcp.model$coefficients[1] + residuals(hcp.model)
 hcp$fwhm <- NULL
 ggplot(hcp, aes(x=qc, fill=pipeline)) + geom_histogram()
+
+hcp.test <- lmer(qc ~ pipeline + (1 | subject), hcp)
+summary(hcp.test)
 
 hcp.corrected <- dcast(hcp, subject + scheme ~ pipeline, value.var = "qc")
 ggplot(hcp.corrected, aes(x=OtherPipeline, y=QSIPrep)) + 
@@ -87,13 +87,14 @@ pnc <- pnc[!duplicated(pnc[,c('subject', 'pipeline')]),]
 pnc$fwhm.cen <- pnc$fwhm - mean(pnc$fwhm)
 pnc.fwhm.model <- lmer(fwhm ~ pipeline + (1 | subject), data=pnc)
 summary(pnc.fwhm.model)
-pnc.test <- lmer(qc ~ fwhm.cen + pipeline + (1 | subject), pnc)
-summary(pnc.test)
 
 pnc.model <- lm(qc ~ fwhm.cen, data=pnc)
 pnc$qc <- pnc.model$coefficients[1] + residuals(pnc.model)
 pnc$fwhm <- NULL
 ggplot(pnc, aes(x=qc, fill=pipeline)) + geom_histogram()
+
+pnc.test <- lmer(qc ~ pipeline + (1 | subject), pnc)
+summary(pnc.test)
 
 pnc.corrected <- dcast(pnc, subject + scheme ~ pipeline, value.var = "qc")
 ggplot(pnc.corrected, aes(x=OtherPipeline, y=QSIPrep)) + 
@@ -108,8 +109,6 @@ noddi <- noddi[complete.cases(noddi),]
 noddi$fwhm.cen <- noddi$fwhm - mean(noddi$fwhm, na.rm=TRUE)
 noddi.fwhm.model <- lmer(fwhm ~ pipeline + (1 | subject), data=noddi)
 summary(noddi.fwhm.model)
-noddi.test <- lmer(qc ~ fwhm.cen + pipeline + (1 | subject), noddi)
-summary(noddi.test)
 
 # Adjust fwhm predictor
 noddi.model <- lm(qc ~ fwhm.cen, data=noddi)
@@ -117,6 +116,8 @@ noddi$qc <- noddi.model$coefficients[1] + residuals(noddi.model)
 noddi$fwhm <- NULL
 ggplot(noddi, aes(x=qc, fill=pipeline)) + geom_histogram()
 
+noddi.test <- lmer(qc ~ pipeline + (1 | subject), noddi)
+summary(noddi.test)
 
 noddi.corrected <- dcast(noddi, subject + scheme ~ pipeline, value.var = "qc")
 ggplot(noddi.corrected, aes(x=OtherPipeline, y=QSIPrep)) + 
@@ -130,13 +131,13 @@ hbn$fwhm.cen <- hbn$fwhm - mean(hbn$fwhm)
 hbn.fwhm.model <- lmer(fwhm ~ pipeline + (1 | subject), data=hbn)
 summary(hbn.fwhm.model)
 
-hbn.test <- lmer(qc ~ fwhm.cen + pipeline + (1 | subject), hbn)
-summary(hbn.test)
-
 hbn.model <- lm(qc ~ fwhm, data=hbn)
 hbn$qc <- hbn.model$coefficients[1] + residuals(hbn.model)
 hbn$fwhm <- NULL
 ggplot(hbn, aes(x=qc, fill=pipeline)) + geom_histogram()
+
+hbn.test <- lmer(qc ~ pipeline + (1 | subject), hbn)
+summary(hbn.test)
 
 hbn.corrected <- dcast(hbn, subject + scheme ~ pipeline, value.var = "qc")
 ggplot(hbn.corrected, aes(x=OtherPipeline, y=QSIPrep)) + 
@@ -162,8 +163,7 @@ library(broom.mixed)
 
 clean.table <- function(dtf, terms=c("pipelineQSIPrep", "fwhm.cen")){
   bonf <- p.adjust(dtf$p.value)
-  bonf.txt <- sprintf("%.3f", bonf)
-  bonf.txt[bonf < 0.001] <- "< 0.001"
+  bonf.txt <- sprintf("%.4e", bonf)
   dtf[["p-Value (Bonf.)"]] <- bonf.txt
   potential.cols <- c("Scheme", "Term", "Estimate", "Std. Error", "t-Statistic", "p-Value (Bonf.)")
   cols <- intersect(potential.cols, colnames(dtf))
@@ -177,32 +177,32 @@ return(dtf)
 }
 
 fwhm.models <- rbind(
+  tidy(pnc.fwhm.model) %>% mutate(scheme="DTI 64"),
   tidy(abcd.fwhm.model) %>% mutate(scheme="ABCD"),
   tidy(hbn.fwhm.model) %>% mutate(scheme="HBN"),
   tidy(hcp.fwhm.model) %>% mutate(scheme="HCP-Lifespan"),
-  tidy(noddi.fwhm.model) %>% mutate(scheme="MultiShell 113"),
-  tidy(pnc.fwhm.model) %>% mutate(scheme="DTI 64")
+  tidy(noddi.fwhm.model) %>% mutate(scheme="MultiShell 113")
   ) %>%
     mutate_each(funs(round(., 3)), -term, -scheme, -effect, -group, -p.value) %>%
     plyr::rename(c("scheme"="Scheme", "term"="Term", "estimate"="Estimate", "std.error"="Std. Error",
                  "statistic"="t-Statistic")) %>%
-  clean.table()
+  clean.table() %>% select(-Term)
 
 write.table(fwhm.models, file = "shell_multivolfwhm_lmestats.txt", sep = ",", quote = FALSE, row.names = F)
 
 
 
 qc.models <- rbind(
+  tidy(pnc.test) %>% mutate(scheme="DTI 64"),
   tidy(abcd.test) %>% mutate(scheme="ABCD"),
   tidy(hbn.test) %>% mutate(scheme="HBN"),
   tidy(hcp.test) %>% mutate(scheme="HCP-Lifespan"),
-  tidy(noddi.test) %>% mutate(scheme="MultiShell 113"),
-  tidy(pnc.test) %>% mutate(scheme="DTI 64")
+  tidy(noddi.test) %>% mutate(scheme="MultiShell 113")
 ) %>%
     mutate_each(funs(round(., 3)), -term, -scheme, -effect, -group, -p.value) %>%
     plyr::rename(c("scheme"="Scheme", "term"="Term", "estimate"="Estimate", "std.error"="Std. Error",
                  "statistic"="t-Statistic")) %>%
-  clean.table()
+  clean.table() %>% select(-Term)
 
 write.table(qc.models, file = "shell_qc_stats.txt", sep = ",", quote = FALSE, row.names = F)
 
