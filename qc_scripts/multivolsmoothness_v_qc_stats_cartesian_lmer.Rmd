@@ -14,7 +14,7 @@ library(lmerTest)
 library(reshape2)
 library(ggplot2)
 
-qc.fwhm <- read.csv("qc_multivolfwhm_cartesian.csv", header=TRUE)
+qc.fwhm <- na.omit(read.csv("qc_multivolfwhm_cartesian.csv", header=TRUE))
 qc.fwhm$X <- NULL
 qc.fwhm$pipeline <- factor(qc.fwhm$pipeline, levels=c("Raw", "QSIPrep"))
 smooth.compare <- dcast(qc.fwhm, scheme + subject ~ pipeline, value.var = "fwhm") 
@@ -39,6 +39,15 @@ ggplot(qc.fwhm, aes(x=scheme, y=fwhm, color=pipeline, fill=scheme)) + geom_boxpl
   ylab("Estimated FWHM (mm)") + xlab("Sampling Scheme") + 
   scale_fill_brewer(palette="Dark2") + scale_color_grey()
 
+combined_df <- function(qc_fwhm_df){
+  df.corrected <- dcast(qc_fwhm_df, subject + scheme ~ pipeline, value.var = "qc")
+  df.fwhm <- dcast(qc_fwhm_df, subject + scheme ~ pipeline, value.var = "fwhm")
+
+  df.all <- merge(df.corrected, df.fwhm, by=c("subject", "scheme"),
+                  suffixes=c("_corrected_ndc", "_fwhm"))
+  return(df.all)
+}
+
 ```
 
 
@@ -50,14 +59,15 @@ q7$fwhm.cen <- q7$fwhm - mean(q7$fwhm)
 
 q7.model <- lm(qc ~ fwhm.cen, data=q7)
 q7$qc <- q7.model$coefficients[1] + residuals(q7.model)
-q7$fwhm <- NULL
 ggplot(q7, aes(x=qc, fill=pipeline)) + geom_histogram()
 
 q7.test <- lmer(qc ~ pipeline + (1 | subject), data=q7)
 summary(q7.test)
 
 q7.corrected <- dcast(q7, subject + scheme ~ pipeline, value.var = "qc")
-ggplot(q7.corrected, aes(x=Raw, y=QSIPrep)) + 
+q7.all <- combined_df(q7)
+  
+ggplot(q7.all, aes(x=Raw_corrected_ndc, y=QSIPrep_corrected_ndc)) + 
   geom_abline() + geom_point() + ggtitle("q7 QC") + xlab("No Preprocessing")
 ```
 
@@ -69,14 +79,15 @@ csdsi$fwhm.cen <- csdsi$fwhm - mean(csdsi$fwhm)
 
 csdsi.model <- lm(qc ~ fwhm.cen, data=csdsi)
 csdsi$qc <- csdsi.model$coefficients[1] + residuals(csdsi.model)
-csdsi$fwhm <- NULL
 ggplot(csdsi, aes(x=qc, fill=pipeline)) + geom_histogram()
 
 csdsi.test <- lmer(qc ~ pipeline + (1 | subject), csdsi)
 summary(csdsi.test)
 
 csdsi.corrected <- dcast(csdsi, subject + scheme ~ pipeline, value.var = "qc")
-ggplot(csdsi.corrected, aes(x=Raw, y=QSIPrep)) + 
+csdsi.all <- combined_df(csdsi)
+
+ggplot(csdsi.all, aes(x=Raw_corrected_ndc, y=QSIPrep_corrected_ndc)) + 
   geom_abline() + geom_point() + ggtitle("csdsi QC") + xlab("No Preprocessing")
 ```
 
@@ -88,23 +99,23 @@ crash$fwhm.cen <- crash$fwhm - mean(crash$fwhm)
 
 crash.model <- lm(qc ~ fwhm.cen, data=crash)
 crash$qc <- crash.model$coefficients[1] + residuals(crash.model)
-crash$fwhm <- NULL
 ggplot(crash, aes(x=qc, fill=pipeline)) + geom_histogram()
 
 crash.test <- lmer(qc ~ pipeline + (1 | subject), crash)
 summary(crash.test)
 
 crash.corrected <- dcast(crash, subject + scheme ~ pipeline, value.var = "qc")
-ggplot(crash.corrected, aes(x=Raw, y=QSIPrep)) + 
+crash.all <- combined_df(crash)
+ggplot(crash.all, aes(x=Raw_corrected_ndc, y=QSIPrep_corrected_ndc)) + 
   geom_abline() + geom_point() + ggtitle("crash QC") + xlab("No Preprocessing")
 ```
 
 ```{r corrected_qcs}
 
-corrected.qcs <- rbind(q7.corrected, crash.corrected, csdsi.corrected)
-write.csv(corrected.qcs, "nonspherical_fwhm-corrected_qcs.csv")
+corrected.qcs <- rbind(q7.all, crash.all, csdsi.all)
+write.csv(na.omit(corrected.qcs), "nonspherical_fwhm-corrected_qcs.csv")
 
-ggplot(corrected.qcs, aes(x=Raw, y=QSIPrep)) + geom_abline() +
+ggplot(corrected.qcs, aes(x=Raw_corrected_ndc, y=QSIPrep_corrected_ndc)) + geom_abline() +
   geom_point() + facet_wrap(~scheme) + theme_linedraw() + 
   scale_color_brewer(palette="Dark1", limits=levels(qc.fwhm$scheme))
 
@@ -112,7 +123,7 @@ ggplot(corrected.qcs, aes(x=Raw, y=QSIPrep)) + geom_abline() +
 
 ```{r corrected_qcs2}
 
-ggplot(corrected.qcs, aes(x=Raw, y=QSIPrep, color=scheme)) + geom_abline() +
+ggplot(corrected.qcs, aes(x=Raw_corrected_ndc, y=QSIPrep_corrected_ndc, color=scheme)) + geom_abline() +
   geom_point() + ggtitle("Non-Spherical Schemes") + xlab("Previous Pipeline") + 
   theme_linedraw() + 
   scale_color_brewer(palette="Paired", limits=levels(qc.fwhm$scheme))
@@ -150,14 +161,13 @@ fwhm.models <- rbind(
   tidy(q7.fwhm.model) %>% mutate(scheme="DSI 789")
 ) %>%
      mutate_each(funs(round(., 3)), -term, -scheme, -effect, -group, -p.value) %>%
-    plyr::rename(c("scheme"="Scheme", "term"="Term", "estimate"="Estimate", "std.error"="Std. Error",
-                 "statistic"="t-Statistic")) %>%
+    plyr::rename(c("scheme"="Scheme", "term"="Term", "estimate"="Estimate", 
+                   "std.error"="Std. Error",
+                   "statistic"="t-Statistic")) %>%
   clean.table() %>% select(-Term)
 
 
 write.table(fwhm.models, file = "cart_fwhm_stats.txt", sep = ",", quote = FALSE, row.names = F)
-
-
 
 qc.models <- rbind(
   tidy(csdsi.test) %>% mutate(scheme="CS-DSI"),
@@ -165,7 +175,8 @@ qc.models <- rbind(
   tidy(q7.test) %>% mutate(scheme="DSI 789")
 ) %>%
    mutate_each(funs(round(., 3)), -term, -scheme, -effect, -group, -p.value) %>%
-  plyr::rename(c("scheme"="Scheme", "term"="Term", "estimate"="Estimate", "std.error"="Std. Error",
+  plyr::rename(c("scheme"="Scheme", "term"="Term", "estimate"="Estimate",
+                 "std.error"="Std. Error",
                  "statistic"="t-Statistic")) %>%
   clean.table() %>% select(-Term)
 

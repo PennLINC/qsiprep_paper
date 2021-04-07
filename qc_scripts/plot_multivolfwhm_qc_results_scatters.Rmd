@@ -26,15 +26,11 @@ multishell.pallete <- "Set1"
 sphere.corrected.qc <- read.csv("spherical_fwhm-corrected_qcs.csv", header=TRUE)
 sphere.corrected.qc$scheme <- factor(sphere.corrected.qc$scheme, levels=study.levels)
 
-
 qc.ref.lines <- geom_abline(slope=1, intercept=seq(-1, 1, by=0.1), size=0.15, color="gray", alpha=0.8)
 fwhm.ref.lines <- geom_abline(slope=1, intercept=seq(-2, 2, by=1), size=0.15, color="gray", alpha=0.8)
 
-# Load the FWHM data
-shelled.fwhm.compare <- read.csv("shelled_smoothness_anonymous.csv", header=TRUE)
-
 sphere.scatters.qc <- ggplot(
-  sphere.corrected.qc, aes(x=OtherPipeline, y=QSIPrep, color=scheme)) +
+  sphere.corrected.qc, aes(x=OtherPipeline_corrected_ndc, y=QSIPrep_corrected_ndc, color=scheme)) +
   qc.ref.lines + geom_abline() +
   geom_point(alpha=0.7, stroke=0) + xlab("Previous Pipeline") +
   xlim(0.2, 0.95) + ylim(0.2, 0.95) + theme_classic() +
@@ -45,7 +41,7 @@ sphere.scatters.qc <- ggplot(
   scatter.theme
 
 sphere.scatters.fwhm <- ggplot(
-  shelled.fwhm.compare, aes(x=OtherPipeline, y=QSIPrep, color=scheme)) +
+  sphere.corrected.qc, aes(x=OtherPipeline_fwhm, y=QSIPrep_fwhm, color=scheme)) +
   fwhm.ref.lines + geom_abline() +
   geom_point(alpha=0.7, stroke=0) + xlab("Previous Pipeline") +
   xlim(3.5, 6.1) + ylim(3.5, 6.1) + theme_classic() +
@@ -85,15 +81,8 @@ cart.pallete <- "Paired"
 cart.corrected.qc <- read.csv("nonspherical_fwhm-corrected_qcs.csv", header=TRUE)
 cart.corrected.qc$scheme <- factor(cart.corrected.qc$scheme, levels=study.levels)
 
-# Load the FWHM data
-nonshelled <- read.csv("nonshelled_smoothness_anonymous.csv", header=TRUE)
-
-nonshelled.fwhm <- ddply(nonshelled, .(subject, pipeline, scheme), summarise, fwhm=mean(fwhm))
-nonshelled.fwhm.compare <- dcast(nonshelled.fwhm, subject + scheme ~ pipeline, value.var = "fwhm")
-
-
 cart.scatters.qc <- ggplot(
-  cart.corrected.qc, aes(x=Raw, y=QSIPrep, color=scheme)) +
+  cart.corrected.qc, aes(x=Raw_corrected_ndc, y=QSIPrep_corrected_ndc, color=scheme)) +
   qc.ref.lines + geom_abline() +
   geom_point(alpha=0.7, stroke=0) + xlab("Raw Data") + ylab("QSIPrep") +
   xlim(0.55, 0.86) + ylim(0.55, 0.86) + theme_classic() +
@@ -102,10 +91,8 @@ cart.scatters.qc <- ggplot(
                      name="") +
   scatter.theme
 
-
-
 cart.scatters.fwhm <- ggplot(
-  nonshelled.fwhm.compare, aes(x=Raw, y=QSIPrep, color=scheme)) +
+  cart.corrected.qc, aes(x=Raw_fwhm, y=QSIPrep_fwhm, color=scheme)) +
   fwhm.ref.lines + geom_abline() +
   geom_point(alpha=0.7, stroke=0) + xlab("Raw Data") +
   xlim(3.5, 5.5) + ylim(3.5, 5.5) +
@@ -152,9 +139,9 @@ ggsave("all_scatters.svg", width=size-1.5, units="in", height=size)
 ```{r shelled_fwhm_v_raw}
 
 qp.v.raw.scatter <- ggplot(
-  shelled.fwhm.compare, aes(x=Raw, y=QSIPrep, color=scheme)) +
+  sphere.corrected.qc, aes(x=Raw, y=QSIPrep_fwhm, color=scheme)) +
   fwhm.ref.lines + geom_abline() +
-  geom_point(alpha=0.7, stroke=0) + xlab("Raw") +
+  geom_point(alpha=0.7, stroke=0) + xlab("Raw") + ylab("QSIPrep") +
   xlim(3, 6.1) + ylim(3, 6.1) + theme_classic() +
   labs(title="Raw vs. QSIPrep") +
   coord_fixed() +
@@ -163,7 +150,7 @@ qp.v.raw.scatter <- ggplot(
   scatter.theme
 
 other.v.rqw.scatter <- ggplot(
-  shelled.fwhm.compare, aes(x=Raw, y=OtherPipeline, color=scheme)) +
+  sphere.corrected.qc, aes(x=Raw, y=OtherPipeline_fwhm, color=scheme)) +
   fwhm.ref.lines + geom_abline() +
   geom_point(alpha=0.7, stroke=0) + ylab("Previous Pipeline") +
   xlim(3, 6.1) + ylim(3, 6.1) + theme_classic() +
@@ -189,5 +176,12 @@ sph.fwhm.annot
 ggsave("raw_v_pipeline_fwhm.svg", width=7, units="in", height=5)
 
 ```
+
+```{r write_figdata}
+library(openxlsx)
+# write it!
+ds.list <- list("shelled_schemes"=sphere.corrected.qc,
+                "nonshelled_schemes"=cart.corrected.qc)
+write.xlsx(ds.list, file="Figure2_EDFigure5_data.xlsx", row.names=FALSE, append=TRUE)
 
 ```

@@ -36,6 +36,15 @@ ggplot(qc.fwhm, aes(x=scheme, y=fwhm, color=pipeline, fill=scheme)) + geom_boxpl
   ylab("Estimated FWHM (mm)") + xlab("Sampling Scheme") + 
   scale_fill_brewer(palette="Dark2") + scale_color_grey()
 
+combined_df <- function(qc_fwhm_df){
+  df.corrected <- dcast(qc_fwhm_df, subject + scheme ~ pipeline, value.var = "qc")
+  df.fwhm <- dcast(qc_fwhm_df, subject + scheme ~ pipeline, value.var = "fwhm")
+
+  df.all <- merge(df.corrected, df.fwhm, by=c("subject", "scheme"),
+                  suffixes=c("_corrected_ndc", "_fwhm"))
+  return(df.all)
+}
+
 ```
 
 
@@ -47,14 +56,15 @@ summary(abcd.fwhm.model)
 
 abcd.model <- lm(qc ~ fwhm.cen, data=abcd)
 abcd$qc <- abcd.model$coefficients[1] + residuals(abcd.model)
-abcd$fwhm <- NULL
 ggplot(abcd, aes(x=qc, fill=pipeline)) + geom_histogram()
 
 abcd.test <- lmer(qc ~ pipeline + (1 | subject), abcd)
 summary(abcd.test)
 
 abcd.corrected <- dcast(abcd, subject + scheme ~ pipeline, value.var = "qc")
-ggplot(abcd.corrected, aes(x=OtherPipeline, y=QSIPrep)) + 
+abcd.all <- combined_df(abcd)
+
+ggplot(abcd.all, aes(x=OtherPipeline_corrected_ndc, y=QSIPrep_corrected_ndc)) + 
   geom_abline() + geom_point() + ggtitle("ABCD QC") + xlab("MMPS Preprocessed")
 ```
 
@@ -69,14 +79,16 @@ summary(hcp.fwhm.model)
 
 hcp.model <- lm(qc ~ fwhm.cen, data=hcp)
 hcp$qc <- hcp.model$coefficients[1] + residuals(hcp.model)
-hcp$fwhm <- NULL
 ggplot(hcp, aes(x=qc, fill=pipeline)) + geom_histogram()
 
 hcp.test <- lmer(qc ~ pipeline + (1 | subject), hcp)
 summary(hcp.test)
 
 hcp.corrected <- dcast(hcp, subject + scheme ~ pipeline, value.var = "qc")
-ggplot(hcp.corrected, aes(x=OtherPipeline, y=QSIPrep)) + 
+
+hcp.all <- combined_df(hcp)
+
+ggplot(hcp.all, aes(x=OtherPipeline_corrected_ndc, y=QSIPrep_corrected_ndc)) + 
   geom_abline() + geom_point() + ggtitle("HCP QC") + xlab("HCP Diffusion")
 
 ```
@@ -90,14 +102,14 @@ summary(pnc.fwhm.model)
 
 pnc.model <- lm(qc ~ fwhm.cen, data=pnc)
 pnc$qc <- pnc.model$coefficients[1] + residuals(pnc.model)
-pnc$fwhm <- NULL
 ggplot(pnc, aes(x=qc, fill=pipeline)) + geom_histogram()
 
 pnc.test <- lmer(qc ~ pipeline + (1 | subject), pnc)
 summary(pnc.test)
 
 pnc.corrected <- dcast(pnc, subject + scheme ~ pipeline, value.var = "qc")
-ggplot(pnc.corrected, aes(x=OtherPipeline, y=QSIPrep)) + 
+pnc.all <- combined_df(pnc)
+ggplot(pnc.all, aes(x=OtherPipeline_corrected_ndc, y=QSIPrep_corrected_ndc)) + 
   geom_abline() + geom_point() + ggtitle("PNC QC") + xlab("FSL TOPUP/eddy")
 
 ```
@@ -113,14 +125,14 @@ summary(noddi.fwhm.model)
 # Adjust fwhm predictor
 noddi.model <- lm(qc ~ fwhm.cen, data=noddi)
 noddi$qc <- noddi.model$coefficients[1] + residuals(noddi.model)
-noddi$fwhm <- NULL
 ggplot(noddi, aes(x=qc, fill=pipeline)) + geom_histogram()
 
 noddi.test <- lmer(qc ~ pipeline + (1 | subject), noddi)
 summary(noddi.test)
 
 noddi.corrected <- dcast(noddi, subject + scheme ~ pipeline, value.var = "qc")
-ggplot(noddi.corrected, aes(x=OtherPipeline, y=QSIPrep)) + 
+noddi.all <- combined_df(noddi)
+ggplot(noddi.all, aes(x=OtherPipeline_corrected_ndc, y=QSIPrep_corrected_ndc)) + 
   geom_abline() + geom_point() + ggtitle("GRMPY QC") + xlab("FSL TOPUP/eddy")
 ```
 
@@ -133,25 +145,32 @@ summary(hbn.fwhm.model)
 
 hbn.model <- lm(qc ~ fwhm, data=hbn)
 hbn$qc <- hbn.model$coefficients[1] + residuals(hbn.model)
-hbn$fwhm <- NULL
 ggplot(hbn, aes(x=qc, fill=pipeline)) + geom_histogram()
 
 hbn.test <- lmer(qc ~ pipeline + (1 | subject), hbn)
 summary(hbn.test)
 
 hbn.corrected <- dcast(hbn, subject + scheme ~ pipeline, value.var = "qc")
-ggplot(hbn.corrected, aes(x=OtherPipeline, y=QSIPrep)) + 
+hbn.all <- combined_df(hbn)
+
+ggplot(hbn.all, aes(x=OtherPipeline_corrected_ndc, y=QSIPrep_corrected_ndc)) + 
   geom_abline() + geom_point() + ggtitle("HBN QC") + xlab("dmriprep Preprocessed")
 ```
 
 ```{r corrected_qcs}
-corrected.qcs <- rbind(abcd.corrected, hcp.corrected, pnc.corrected, noddi.corrected, hbn.corrected)
-write.csv(corrected.qcs, "spherical_fwhm-corrected_qcs.csv")
+corrected.qcs <- na.omit(rbind(abcd.all, hcp.all, pnc.all, noddi.all, hbn.all))
+
+# Load the Raw FWHM data
+shelled.fwhm.compare <- read.csv("shelled_smoothness_anonymous.csv", header=TRUE)
+corrected.qcs.plus.raw <- na.omit(merge(corrected.qcs, shelled.fwhm.compare[,c("subject", "scheme", "Raw")]))
+
+
+write.csv(corrected.qcs.plus.raw, "spherical_fwhm-corrected_qcs.csv")
 ```
 
 ```{r corrected_qcs2}
 
-ggplot(corrected.qcs, aes(x=OtherPipeline, y=QSIPrep, color=scheme)) + geom_abline() +
+ggplot(corrected.qcs, aes(x=OtherPipeline_corrected_ndc, y=QSIPrep_corrected_ndc, color=scheme)) + geom_abline() +
   geom_point(alpha=0.8) + ggtitle("MultiShell Schemes") + xlab("Previous Pipeline") + 
   xlim(0.6, 0.95) + ylim(0.6, 0.95) + theme_linedraw() + scale_color_brewer(palette="Dark2", limits=levels(qc.fwhm$scheme))
 
